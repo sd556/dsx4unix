@@ -1,0 +1,43 @@
+# dsx4unix default configuration
+# Override any field by specifying it in a custom config file with --config
+
+game: forza
+name: "Forza Motorsport"
+telemetry_port: 30778
+dsx_host: "127.0.0.1"
+dsx_port: 6969
+
+throttle:
+  trigger_mode: vibration
+  grip_loss_value: 0.6
+  effect_intensity: 1.0
+  turn_acceleration_scale: 0.25
+  forward_acceleration_scale: 1.0
+  acceleration_limit: 10
+  vibration_mode_start: 5
+  min_vibration: 5
+  max_vibration: 55
+  vibration_smoothing: 1.0
+  min_stiffness: 255
+  max_stiffness: 175
+  min_resistance: 0
+  max_resistance: 3
+  resistance_smoothing: 0.9
+
+brake:
+  trigger_mode: vibration
+  effect_intensity: 1.0
+  grip_loss_value: 0.05
+  vibration_start: 0
+  vibration_mode_start: 30
+  min_vibration: 15
+  max_vibration: 20
+  vibration_smoothing: 1.0
+  min_stiffness: 150
+  max_stiffness: 5
+  min_resistance: 0
+  max_resistance: 7
+  resistance_smoothing: 0.4
+
+lightbar:
+  rpm_redline_ratio: 0.9
