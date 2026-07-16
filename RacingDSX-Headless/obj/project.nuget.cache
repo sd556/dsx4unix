@@ -1,0 +1,21 @@
+{
+  "version": 2,
+  "dgSpecHash": "8DeQVh/CYXs=",
+  "success": true,
+  "projectFilePath": "/var/home/deck/code/dsx4unix/RacingDSX-Headless/RacingDSX.csproj",
+  "expectedPackageFiles": [
+    "/home/deck/.nuget/packages/csvhelper/33.0.1/csvhelper.33.0.1.nupkg.sha512",
+    "/home/deck/.nuget/packages/microsoft.extensions.configuration/9.0.0/microsoft.extensions.configuration.9.0.0.nupkg.sha512",
+    "/home/deck/.nuget/packages/microsoft.extensions.configuration.abstractions/9.0.0/microsoft.extensions.configuration.abstractions.9.0.0.nupkg.sha512",
+    "/home/deck/.nuget/packages/microsoft.extensions.configuration.binder/9.0.0/microsoft.extensions.configuration.binder.9.0.0.nupkg.sha512",
+    "/home/deck/.nuget/packages/microsoft.extensions.configuration.environmentvariables/9.0.0/microsoft.extensions.configuration.environmentvariables.9.0.0.nupkg.sha512",
+    "/home/deck/.nuget/packages/microsoft.extensions.configuration.fileextensions/9.0.0/microsoft.extensions.configuration.fileextensions.9.0.0.nupkg.sha512",
+    "/home/deck/.nuget/packages/microsoft.extensions.configuration.ini/9.0.0/microsoft.extensions.configuration.ini.9.0.0.nupkg.sha512",
+    "/home/deck/.nuget/packages/microsoft.extensions.fileproviders.abstractions/9.0.0/microsoft.extensions.fileproviders.abstractions.9.0.0.nupkg.sha512",
+    "/home/deck/.nuget/packages/microsoft.extensions.fileproviders.physical/9.0.0/microsoft.extensions.fileproviders.physical.9.0.0.nupkg.sha512",
+    "/home/deck/.nuget/packages/microsoft.extensions.filesystemglobbing/9.0.0/microsoft.extensions.filesystemglobbing.9.0.0.nupkg.sha512",
+    "/home/deck/.nuget/packages/microsoft.extensions.primitives/9.0.0/microsoft.extensions.primitives.9.0.0.nupkg.sha512",
+    "/home/deck/.nuget/packages/newtonsoft.json/13.0.3/newtonsoft.json.13.0.3.nupkg.sha512"
+  ],
+  "logs": []
+}

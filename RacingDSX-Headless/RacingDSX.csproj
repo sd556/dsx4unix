@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <StartupObject>RacingDSX.Program</StartupObject>
+    <IsPublishable>True</IsPublishable>
+    <Title>RacingDSX-Headless</Title>
+    <IncludeSymbols>True</IncludeSymbols>
+    <Company>Paliverse Apps LLC</Company>
+    <EnableWindowsTargeting>false</EnableWindowsTargeting>
+    <DefineConstants>TRACE;HEADLESS</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin/Debug/</OutputPath>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DebugType>none</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin/Release/</OutputPath>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CsvHelper" Version="33.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Ini" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="9.0.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+  <!-- Exclude GUI and Properties files -->
+  <ItemGroup>
+    <Compile Remove="UI.cs" />
+    <Compile Remove="UI.Designer.cs" />
+    <Compile Remove="NameForm.cs" />
+    <Compile Remove="NameForm.Designer.cs" />
+    <Compile Remove="Properties/**" />
+    <Compile Remove="Settings.cs" />
+    <EmbeddedResource Remove="UI.resx" />
+    <EmbeddedResource Remove="NameForm.resx" />
+    <EmbeddedResource Remove="Properties/**" />
+    <None Remove="App.config" />
+    <None Remove="RacingDSX.dll.config" />
+  </ItemGroup>
+
+</Project>

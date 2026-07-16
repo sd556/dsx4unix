@@ -190,6 +190,178 @@ dsx4unix/
 └── pyproject.toml
 ```
 
+## RacingDSX on Linux (Native .NET)
+
+**Goal**: Run RacingDSX (the original C# app) natively on Linux via .NET 8 runtime → UDP 6969 → Hefesto → DualSense.
+
+### Architecture
+
+```
+┌──────────────────────┐     UDP telemetry      ┌──────────────────┐     UDP 6969 (DSX JSON)     ┌──────────────────┐     HID (direct)     ┌────────────┐
+│  Forza Horizon 4     │ ──────────────────────→│  RacingDSX       │ ────────────────────────────→│  Hefesto         │ ────────────────────→│ DualSense   │
+│  (Proton / Native)   │  UDP 5300              │  (.NET 8 Linux)  │  (DSX protocol compatible)   │  (DualSense4Unix)  │  hidraw / pydualsense │ (PS5)      │
+└──────────────────────┘                        └──────────────────┘                                └──────────────────┘                        └────────────┘
+```
+
+### Prerequisites
+
+1. **.NET 8 Runtime** installed (`dotnet --version >= 8.0`)
+2. **Hefesto** running on UDP 6969 (see above)
+3. **RacingDSX-Headless** source in `RacingDSX-Headless/`
+
+### Quick Start
+
+```bash
+cd ~/code/dsx4unix/RacingDSX-Headless
+
+# Build
+dotnet publish -c Release -r linux-x64 -o bin/Release/net8.0/linux-x64
+
+# Run
+dotnet bin/Release/net8.0/linux-x64/RacingDSX.dll
+```
+
+### Configuration
+
+Edit `bin/Release/net8.0/linux-x64/RacingDSX.json`:
+
+```json
+{
+  "DisableAppCheck": true,
+  "VerboseLevel": 1,
+  "DSXPort": 6969,
+  "DefaultProfile": "Forza",
+  "Profiles": {
+    "Forza": {
+      "GameType": 1,
+      "IsEnabled": true,
+      "Name": "Forza",
+      "gameUDPPort": 5300,
+      "throttleSettings": {
+        "TriggerMode": 2,
+        "GripLossValue": 0.6,
+        "EffectIntensity": 2,
+        "TurnAccelerationScale": 0.25,
+        "ForwardAccelerationScale": 1,
+        "AccelerationLimit": 10,
+        "VibrationModeStart": 5,
+        "MinVibration": 5,
+        "MaxVibration": 55,
+        "VibrationSmoothing": 1,
+        "MinStiffness": 15,
+        "MaxStiffness": 20,
+        "MinResistance": 0,
+        "MaxResistance": 7,
+        "ResistanceSmoothing": 0.4
+      },
+      "brakeSettings": {
+        "TriggerMode": 2,
+        "EffectIntensity": 1,
+        "GripLossValue": 0.05,
+        "VibrationStart": 0,
+        "VibrationModeStart": 30,
+        "MinVibration": 15,
+        "MaxVibration": 20,
+        "VibrationSmoothing": 1,
+        "MinStiffness": 15,
+        "MaxStiffness": 20,
+        "MinResistance": 0,
+        "MaxResistance": 7,
+        "ResistanceSmoothing": 0.4
+      }
+    }
+  }
+}
+```
+
+### Tuning Guide: L2 (Brake) & R2 (Throttle) for FH4
+
+**R2 (Throttle) — Grip Loss / Drift Kickback:**
+
+| Parameter | Default | Description | Tuning Tips |
+|-----------|---------|-------------|-------------|
+| `TriggerMode` | 2 | 0=Resistance, 1=Vibration, 2=Hybrid | Keep at 2 for hybrid vibration+resistance |
+| `GripLossValue` | 0.6 | Tire slip threshold to trigger vibration | Lower (0.3-0.4) for earlier drift detection |
+| `EffectIntensity` | 2 | Multiplier for vibration frequency & resistance | **Increase to 3-5 for stronger kickback** |
+| `MaxVibration` | 55 | Max vibration frequency | Increase to 80-100 for more intense rumble |
+| `MinStiffness` | 15 | Stiffness at max acceleration | Lower to 5 for softer throttle feel |
+| `MaxStiffness` | 20 | Stiffness at zero acceleration | Higher = stiffer idle feel |
+| `MaxResistance` | 7 | Max resistance level (0-8) | Keep at 7 for strong resistance |
+| `ResistanceSmoothing` | 0.4 | EWMA smoothing factor | Lower (0.2) for snappier response |
+| `VibrationModeStart` | 5 | Min throttle input for vibration | Lower to trigger vibration at light throttle |
+
+**L2 (Brake) — Brake Pressure Feel:**
+
+| Parameter | Default | Description | Tuning Tips |
+|-----------|---------|-------------|-------------|
+| `TriggerMode` | 2 | 0=Resistance, 1=Vibration, 2=Hybrid | Keep at 2 for hybrid mode |
+| `EffectIntensity` | 1 | Multiplier for brake effects | Increase to 2-3 for stronger brake feel |
+| `GripLossValue` | 0.05 | Tire slip threshold for brake vibration | Lower for earlier ABS-like feedback |
+| `MinStiffness` | 15 | Stiffness at max brake pressure | Lower to 5 for progressive brake feel |
+| `MaxStiffness` | 20 | Stiffness at zero brake pressure | Higher = stiffer idle feel |
+| `MaxResistance` | 7 | Max resistance level (0-8) | Keep at 7 for strong brake resistance |
+| `ResistanceSmoothing` | 0.4 | EWMA smoothing factor | Lower (0.2) for snappier brake response |
+
+### Hefesto Patch Required
+
+Hefesto needs the following patches to support RacingDSX's `VibrateResistance` mode:
+
+**File**: `src/hefesto_dualsense4unix/core/trigger_effects.py`
+
+1. **Clamp force values 0-255 → 0-8** (RacingDSX sends 0-255, Hefesto expects 0-8):
+```python
+def _force(value: int, *, name: str) -> int:
+    clamped = max(0, min(8, value))
+    if clamped == 8:
+        return 255
+    return clamped * 32
+```
+
+2. **Add custom mode presets** to `PRESET_FACTORIES`:
+```python
+"CustomTriggerValue": custom,
+"VibrateResistance": custom,
+"VibrateResistanceA": custom,
+"VibrateResistanceB": custom,
+"VibrateResistanceAB": custom,
+"VibratePulse": custom,
+"VibratePulseA": custom,
+"VibratePulseB": custom,
+"VibratePulseAB": custom,
+```
+
+### Protocol Mismatch Fix
+
+RacingDSX `Program.cs` must be patched to match Hefesto's expected DSX protocol:
+
+1. **Add `version` field** to `Packet` class:
+```csharp
+[JsonPropertyName("version")]
+public int Version { get; set; } = 1;
+```
+
+2. **Serialize `type` as string** (Hefesto expects `"TriggerUpdate"` not `1`):
+```csharp
+public class InstructionTypeStringConverter : JsonConverter<InstructionType>
+{
+    public override void Write(Utf8JsonWriter writer, InstructionType value, JsonSerializerOptions options)
+    {
+        writer.WriteStringValue(value.ToString());
+    }
+}
+```
+
+3. **Serialize `parameters` correctly** — skip `controllerIndex`, serialize enums as strings:
+```csharp
+// Skip controllerIndex (first element) — Hefesto expects [side, mode, ...]
+int startIdx = value.Length > 0 && value[0] is int ? 1 : 0;
+```
+
+### Known Issues
+
+- **R2 drift kickback is subtle** — RacingDSX calculates vibration frequency from acceleration data. During steady drift (constant speed), acceleration is low → frequency = 0. Increase `EffectIntensity` to 3-5 for stronger kickback.
+- **Wine alternative** — RacingDSX can also run under Wine/Proton but requires ICU DLLs and Xvfb. Native .NET is simpler.
+
 ## License
 
 MIT
