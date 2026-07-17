@@ -71,13 +71,13 @@ namespace RacingDSX
             {
                 this.verboseLevel = level;
                 this.type = ReportType.VERBOSEMESSAGE;
-                this.message = String.Empty;
+                this.message = msg;
             }
 
             public RacingDSXReportStruct(string msg)
             {
                 this.type = ReportType.VERBOSEMESSAGE;
-                this.message = String.Empty;
+                this.message = msg;
             }
 
             public ReportType type = 0;

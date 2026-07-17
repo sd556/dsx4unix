@@ -1,0 +1,177 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+HEFESTO_SERVICE="hefesto-dualsense4unix.service"
+RACING_SERVICE="racingdsx.service"
+SERVICES=("$HEFESTO_SERVICE" "$RACING_SERVICE")
+
+usage() {
+  cat <<EOF
+Usage: $(basename "$0") [command]
+
+  start, (no args)  Start Hefesto + RacingDSX
+  stop              Stop RacingDSX + Hefesto
+  restart           Restart both
+  status            Show both services and UDP ports
+  logs [args...]    Show/follow RacingDSX, Hefesto, and DualSense kernel logs
+  enable            Start both automatically on login
+  disable           Disable login autostart (does not stop them)
+  help              Show this help
+EOF
+}
+
+wait_for_udp_port() {
+  local port="$1"
+  local service="$2"
+  local attempt
+
+  for attempt in {1..50}; do
+    if ss -H -lun | grep -Eq ":${port}([[:space:]]|$)"; then
+      return 0
+    fi
+    if ! systemctl --user --quiet is-active "$service"; then
+      echo "DSX stack failed: $service stopped before UDP :$port became ready" >&2
+      systemctl --user status "$service" --no-pager --full >&2 || true
+      return 1
+    fi
+    sleep 0.2
+  done
+
+  echo "DSX stack failed: timed out waiting for $service on UDP :$port" >&2
+  systemctl --user status "$service" --no-pager --full >&2 || true
+  return 1
+}
+
+start_all() {
+  systemctl --user daemon-reload
+  systemctl --user reset-failed "$HEFESTO_SERVICE" "$RACING_SERVICE" 2>/dev/null || true
+
+  systemctl --user start "$HEFESTO_SERVICE"
+  wait_for_udp_port 6969 "$HEFESTO_SERVICE"
+
+  systemctl --user start "$RACING_SERVICE"
+  wait_for_udp_port 5300 "$RACING_SERVICE"
+
+  # A listener can appear briefly before a crashing process exits. Require both
+  # services and ports to remain healthy past the initial startup window.
+  sleep 1
+  for service in "${SERVICES[@]}"; do
+    if ! systemctl --user --quiet is-active "$service"; then
+      echo "DSX stack failed stability check: $service is not active" >&2
+      systemctl --user status "$service" --no-pager --full >&2 || true
+      return 1
+    fi
+  done
+  wait_for_udp_port 6969 "$HEFESTO_SERVICE"
+  wait_for_udp_port 5300 "$RACING_SERVICE"
+
+  echo "DSX stack started and stable: Hefesto UDP :6969, RacingDSX telemetry UDP :5300"
+}
+
+stop_all() {
+  systemctl --user stop "$RACING_SERVICE" "$HEFESTO_SERVICE"
+  echo "DSX stack stopped"
+}
+
+status_all() {
+  systemctl --user status "${SERVICES[@]}" --no-pager --full || true
+  printf '\nUDP listeners:\n'
+  ss -lunp | grep -E ':(5300|6969)([[:space:]]|$)' || echo 'No DSX UDP listeners found.'
+}
+
+show_log_snapshot() {
+  printf '%s\n' '=== DSX component state ==='
+  systemctl --user is-active "${SERVICES[@]}" 2>&1 | paste -d' ' <(printf '%s\n' "${SERVICES[@]}") - || true
+  ss -lunp | grep -E ':(5300|6969)([[:space:]]|$)' || echo 'No DSX UDP listeners found.'
+  printf '\n=== DualSense devices ===\n'
+  for device in /sys/class/hidraw/hidraw*/device/uevent; do
+    [[ -r "$device" ]] || continue
+    if grep -Eqi '054C.*0CE6|DualSense|Wireless.Controller' "$device"; then
+      printf '%s\n' "--- $device"
+      grep -Ei 'HID_ID|HID_NAME|DRIVER|PRODUCT' "$device" || true
+    fi
+  done
+}
+
+follow_all_logs() {
+  local -a journal_args=("$@")
+  local service_pid kernel_pid
+
+  show_log_snapshot
+  printf '\n=== Following RacingDSX + Hefesto service logs ===\n'
+  setsid bash -c '
+    stdbuf -oL journalctl --user \
+      -u "$1" -u "$2" -n 100 "${@:3}" \
+      | stdbuf -oL sed "s/^/[DSX services] /"
+  ' _ "$HEFESTO_SERVICE" "$RACING_SERVICE" "${journal_args[@]}" &
+  service_pid=$!
+
+  printf '%s\n' '=== Following DualSense / HID / USB / Bluetooth kernel logs ==='
+  setsid bash -c '
+    stdbuf -oL journalctl -k -n 300 "$@" \
+      | stdbuf -oL grep -Ei --line-buffered \
+        "dualsense|hid-playstation|playstation|054c[:.]0ce6|sony.*controller|wireless controller|hidraw|bluetooth.*(disconnect|connect)|usb.*(disconnect|connect)" \
+      | stdbuf -oL sed "s/^/[controller kernel] /"
+  ' _ "${journal_args[@]}" &
+  kernel_pid=$!
+
+  cleanup_log_followers() {
+    kill -- "-$service_pid" "-$kernel_pid" 2>/dev/null || true
+    wait "$service_pid" "$kernel_pid" 2>/dev/null || true
+  }
+  trap cleanup_log_followers EXIT INT TERM
+  wait "$service_pid" "$kernel_pid"
+}
+
+show_all_logs() {
+  show_log_snapshot
+  printf '\n=== RacingDSX + Hefesto service logs ===\n'
+  journalctl --user \
+    -u "$HEFESTO_SERVICE" \
+    -u "$RACING_SERVICE" \
+    -n 100 --no-pager "$@"
+  printf '\n=== DualSense / HID / USB / Bluetooth kernel logs ===\n'
+  journalctl -k -n 300 --no-pager "$@" \
+    | grep -Ei 'dualsense|hid-playstation|playstation|054c[:.]0ce6|sony.*controller|wireless controller|hidraw|bluetooth.*(disconnect|connect)|usb.*(disconnect|connect)' \
+    || echo 'No matching controller kernel logs found.'
+}
+
+cmd="${1:-start}"
+shift || true
+case "$cmd" in
+  start) start_all ;;
+  stop) stop_all ;;
+  restart)
+    stop_all
+    start_all
+    ;;
+  status) status_all ;;
+  logs)
+    follow=0
+    for arg in "$@"; do
+      if [[ "$arg" == "-f" || "$arg" == "--follow" ]]; then
+        follow=1
+        break
+      fi
+    done
+    if ((follow)); then
+      follow_all_logs "$@"
+    else
+      show_all_logs "$@"
+    fi
+    ;;
+  enable)
+    systemctl --user enable "$HEFESTO_SERVICE" "$RACING_SERVICE"
+    echo "DSX stack enabled for login autostart"
+    ;;
+  disable)
+    systemctl --user disable "$RACING_SERVICE" "$HEFESTO_SERVICE"
+    echo "DSX stack login autostart disabled"
+    ;;
+  help|-h|--help) usage ;;
+  *)
+    echo "Unknown command: $cmd" >&2
+    usage >&2
+    exit 2
+    ;;
+esac

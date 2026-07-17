@@ -54,6 +54,15 @@ class RacingDSXParityTests(unittest.TestCase):
         self.assertEqual(instr.mode, "Custom")
         self.assertEqual(instr.custom_mode, "VibrateResistance")
         self.assertEqual(instr.custom_forces, (17, 48, 0, 0, 0, 0, 0))
+    def test_headless_defaults_match_original_forza_throttle_tuning(self):
+        """The native mapper defaults must retain the original FH4 pedal feel."""
+        settings = ThrottleSettings()
+        self.assertEqual(settings.effect_intensity, 1)
+        self.assertEqual(settings.min_stiffness, 255)
+        self.assertEqual(settings.max_stiffness, 175)
+        self.assertEqual(settings.min_resistance, 0)
+        self.assertEqual(settings.max_resistance, 3)
+        self.assertEqual(settings.resistance_smoothing, 0.9)
 
 
 if __name__ == "__main__":
