@@ -311,6 +311,26 @@ def test_invalid_state_schema_is_non_mutating(tmp_path, mutate):
     assert state_path.read_bytes() == state_before
 
 
+@pytest.mark.parametrize("version", (True, 1.0), ids=("boolean", "float"))
+def test_invalid_state_version_type_is_non_mutating(tmp_path, version):
+    config_path = tmp_path / "RacingDSX.json"
+    config_path.write_text(json.dumps(_normal_config()))
+    state_path = tmp_path / "state.json"
+    assert _run_helper("high", config_path, state_path).returncode == 0
+    state = json.loads(state_path.read_text())
+    state["version"] = version
+    state_path.write_text(json.dumps(state))
+    config_before, state_before = config_path.read_bytes(), state_path.read_bytes()
+
+    result = _run_helper("normal", config_path, state_path)
+
+    assert result.returncode != 0
+    assert result.stdout == ""
+    assert result.stderr == "error: trigger profile state has an unsupported schema\n"
+    assert config_path.read_bytes() == config_before
+    assert state_path.read_bytes() == state_before
+
+
 def test_repeated_high_rejects_state_keys_not_matching_preset(tmp_path):
     config_path = tmp_path / "RacingDSX.json"
     config_path.write_text(json.dumps(_normal_config()))

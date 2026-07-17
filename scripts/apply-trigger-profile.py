@@ -117,7 +117,7 @@ def parse_state(path: Path, config_sections: dict, preset: dict) -> dict:
     state = load_object(path, "trigger profile state")
     if set(state) != {"version", "active", "normal"}:
         raise ProfileError("trigger profile state has an unsupported schema")
-    if state["version"] != 1 or state["active"] != "high":
+    if type(state["version"]) is not int or state["version"] != 1 or state["active"] != "high":
         raise ProfileError("trigger profile state has an unsupported schema")
     normal = state["normal"]
     if not isinstance(normal, dict):
