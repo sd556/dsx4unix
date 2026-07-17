@@ -4,6 +4,10 @@ set -euo pipefail
 SCRIPT_PATH="$(readlink -f -- "${BASH_SOURCE[0]}")"
 REPO_ROOT="$(cd -- "$(dirname -- "$SCRIPT_PATH")" && pwd)"
 BOOTSTRAP="$REPO_ROOT/scripts/bootstrap-stack.sh"
+PROFILE_HELPER="$REPO_ROOT/scripts/apply-trigger-profile.py"
+RUNTIME_CONFIG="$REPO_ROOT/.runtime/racingdsx/RacingDSX.json"
+HIGH_PRESET="$REPO_ROOT/config/trigger-presets/high.json"
+PROFILE_STATE="$REPO_ROOT/.runtime/racingdsx/trigger-profile-state.json"
 HEFESTO_SERVICE="hefesto-dualsense4unix.service"
 RACING_SERVICE="racingdsx.service"
 SERVICES=("$HEFESTO_SERVICE" "$RACING_SERVICE")
@@ -14,6 +18,8 @@ Usage: $(basename "$0") [command]
 
   setup [options]   Bootstrap the bundled stack (does not start/enable it)
   start, (no args)  Start Hefesto + RacingDSX
+  high             Select maximum R2 + L2 feedback and start/refresh the stack
+  normal           Restore pre-high R2 + L2 settings and start/refresh the stack
   stop              Stop RacingDSX + Hefesto
   restart           Restart both
   status            Show both services and UDP ports
@@ -178,6 +184,42 @@ show_all_logs() {
     || echo 'No matching controller kernel logs found.'
 }
 
+refresh_after_profile_change() {
+  if systemctl --user --quiet is-active "$HEFESTO_SERVICE" \
+      && systemctl --user --quiet is-active "$RACING_SERVICE"; then
+    systemctl --user reset-failed "$RACING_SERVICE" 2>/dev/null || true
+    systemctl --user restart "$RACING_SERVICE"
+    wait_for_udp_port 5300 "$RACING_SERVICE"
+    sleep 1
+    if ! systemctl --user --quiet is-active "$RACING_SERVICE"; then
+      echo "DSX profile switch failed stability check: $RACING_SERVICE is not active" >&2
+      systemctl --user status "$RACING_SERVICE" --no-pager --full >&2 || true
+      return 1
+    fi
+    wait_for_udp_port 5300 "$RACING_SERVICE"
+    echo "RacingDSX refreshed; Hefesto was left running"
+  else
+    start_all
+  fi
+}
+
+select_trigger_profile() {
+  local mode="$1"
+  if [[ ! -x "$PROFILE_HELPER" ]]; then
+    echo "Missing trigger profile helper: $PROFILE_HELPER" >&2
+    return 1
+  fi
+  if [[ ! -f "$HIGH_PRESET" ]]; then
+    echo "Missing high trigger preset: $HIGH_PRESET" >&2
+    return 1
+  fi
+  python3 "$PROFILE_HELPER" "$mode" \
+    --config "$RUNTIME_CONFIG" \
+    --preset "$HIGH_PRESET" \
+    --state "$PROFILE_STATE"
+  refresh_after_profile_change
+}
+
 cmd="${1:-start}"
 shift || true
 case "$cmd" in
@@ -189,6 +231,14 @@ case "$cmd" in
     exec "$BOOTSTRAP" "$@"
     ;;
   start) require_setup; start_all ;;
+  high|normal)
+    require_setup
+    if (($#)); then
+      echo "$cmd does not accept additional arguments" >&2
+      exit 2
+    fi
+    select_trigger_profile "$cmd"
+    ;;
   stop) require_setup; stop_all ;;
   restart)
     require_setup
