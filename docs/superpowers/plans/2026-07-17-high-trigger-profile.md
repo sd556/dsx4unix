@@ -8,12 +8,24 @@
 
 **Tech Stack:** Bash, Python 3.11+ standard library, JSON, systemd user services, pytest.
 
+## Post-implementation status (2026-07-18)
+
+**Status:** Implemented and hardened. The task steps below preserve the original implementation plan; this note records the final contract where the completed implementation is stricter than the initial sketches.
+
+- The saved state has exactly the root keys `version`, `active`, and `normal`. `version` must be the JSON integer `1` exactly (including rejecting `true`), and `active` must be `"high"`.
+- `normal` has exactly the sections `throttleSettings` and `brakeSettings`. Each section has exactly the same selected keys as the current high preset: throttle uses `GripLossValue`, `EffectIntensity`, `TurnAccelerationScale`, `ForwardAccelerationScale`, `AccelerationLimit`, `VibrationModeStart`, `MinVibration`, `MaxVibration`, `VibrationSmoothing`, `MinStiffness`, `MaxStiffness`, `MinResistance`, `MaxResistance`, and `ResistanceSmoothing`; brake uses `GripLossValue`, `EffectIntensity`, `VibrationStart`, `MinVibration`, `MaxVibration`, `VibrationSmoothing`, `MinStiffness`, `MaxStiffness`, `MinResistance`, `MaxResistance`, and `ResistanceSmoothing`. Extra or missing root, section, or selected-key entries are rejected.
+- Both `high` and `normal` load and validate the high preset against the live Forza sections before writing. Thus `normal` also rejects a missing, malformed, structurally invalid, or type-incompatible preset instead of restoring against an unknown key contract.
+- JSON reads convert malformed UTF-8 (`UnicodeDecodeError`) into the helper's normal concise validation error rather than leaking a traceback.
+- Atomic-write cleanup tolerates cleanup failures without masking the original write error. Parent-directory creation, destination mode inspection, state-path inspection, and state removal failures are reported as controlled errors; unsafe or uninspectable filesystem paths do not trigger service actions.
+- Launcher coverage was expanded across `high` and `normal`, active-stack RacingDSX-only refresh, inactive and partially active full-stack branches, helper and refresh failures, setup guards, exact helper argv/path forwarding (including spaces), rejection of trailing arguments before side effects, and preservation of all pre-existing command branches.
+- Restoration preserves unrelated configuration and edits outside the selected trigger keys made while `high` is active. Changes made to selected trigger keys while `high` is active are not preserved: repeated `high` reapplies the preset, and `normal` restores the original snapshot.
+
 ## Global Constraints
 
 - `start_dsx high` applies aggressive feedback to both R2 and L2.
 - `start_dsx normal` restores the exact selected trigger values that existed before the first `high` transition.
 - Do not overwrite the saved normal snapshot on repeated `high` calls.
-- Preserve unrelated RacingDSX configuration, the DiRT profile, and edits made while high is active.
+- Preserve unrelated RacingDSX configuration, the DiRT profile, and edits outside the selected trigger keys made while high is active.
 - Do not edit `config/RacingDSX.json` at runtime; the live file is `.runtime/racingdsx/RacingDSX.json`.
 - Do not change `Parser.cs`, Hefesto HID translation, or Bluetooth pacing.
 - When both services are active, restart only `racingdsx.service`; never restart Hefesto merely to switch a trigger profile.
@@ -869,8 +881,8 @@ Expected: syntax check exits `0`; all listed tests pass.
 Add this command block in the launcher usage section:
 
 ```bash
-start_dsx high    # maximum R2 throttle + L2 brake feedback
-start_dsx normal  # restore the exact trigger settings saved before high
+~/.local/bin/start_dsx high    # maximum R2 throttle + L2 brake feedback
+~/.local/bin/start_dsx normal  # restore the exact trigger settings saved before high
 ```
 
 Document that `high` lowers grip-loss thresholds, strengthens baseline resistance and vibration, and reacts immediately on both triggers. State clearly that the profile is intentionally forceful.

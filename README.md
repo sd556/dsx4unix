@@ -119,18 +119,23 @@ All commands:
 ~/.local/bin/start_dsx disable
 ```
 
-Select or restore the Forza adaptive-trigger profile from the repository checkout:
+Select or restore the Forza adaptive-trigger profile with the installed launcher:
 
 ```bash
-./start_dsx high    # maximum R2 throttle + L2 brake feedback
-./start_dsx normal  # restore the exact trigger settings saved before high
+~/.local/bin/start_dsx high    # maximum R2 throttle + L2 brake feedback
+~/.local/bin/start_dsx normal  # restore the exact trigger settings saved before high
 ```
 
-The intentionally forceful `high` profile affects both triggers: it lowers grip-loss thresholds, strengthens baseline resistance and vibration, and reduces smoothing so R2 and L2 react immediately. The first `high` snapshots exactly the selected Forza throttle and brake keys in `.runtime/racingdsx/trigger-profile-state.json`; repeated `high` selections reapply the preset without replacing that snapshot. `normal` restores those pre-high values exactly and removes the state file. Other Forza values, edits made while high is active, the DiRT profile, and all unrelated configuration remain unchanged.
+The intentionally forceful `high` profile affects both triggers: it lowers grip-loss thresholds, strengthens baseline resistance and vibration, and reduces smoothing so R2 and L2 react immediately. The first `high` snapshots exactly the selected Forza throttle and brake keys in `.runtime/racingdsx/trigger-profile-state.json`; repeated `high` selections reapply the preset without replacing that snapshot. `normal` restores those selected keys to their pre-high values exactly and removes the state file. The DiRT profile, unrelated configuration, and edits outside the selected trigger keys made while `high` is active are preserved. Edits to the selected trigger keys while `high` is active are intentionally replaced by `high` or restored by `normal`.
 
 Profile selection updates the live `.runtime/racingdsx/RacingDSX.json`, never the seed `config/RacingDSX.json`. If both managed services are already active, it restarts and checks only RacingDSX; Hefesto is never stopped or restarted, so its Bluetooth controller handle remains intact. If either service is inactive, the launcher uses the normal full-stack start and stability checks instead.
 
-Invalid configuration, preset, or saved state exits nonzero before any service action; JSON destination replacement is atomic. A helper write/removal error also prevents service action, though an earlier successful state or config write is not rolled back. A later service start/restart or health-check failure returns nonzero without rolling back the selected profile; incomplete-stack startup failures use the normal full-stack cleanup.
+Failure behavior:
+
+- Invalid configuration, preset, or saved state exits nonzero before any service action.
+- JSON destination replacement is atomic. A helper write or state-removal error prevents service action, but an earlier successful state or config write is not rolled back.
+- A service start, restart, or health-check failure exits nonzero without rolling back the selected profile.
+- Incomplete-stack startup failures use the normal full-stack cleanup.
 
 `start` waits for each UDP listener and then performs a stability check. If setup artifacts are absent, the launcher prints the exact setup command instead of trying stale external services.
 
