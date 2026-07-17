@@ -23,6 +23,16 @@ This repository includes:
 | Forza Horizon 4 | Forza dash, offset | 324 bytes |
 | DiRT Rally 1 | DiRT binary | 264 bytes |
 
+## Project status / TODO
+
+- [x] Run RacingDSX natively on Linux with .NET 8.
+- [x] Translate RacingDSX protocol v1 messages through the bundled Hefesto fork.
+- [x] Preserve RacingDSX's custom trigger force range in Hefesto.
+- [x] Provide idempotent setup, user-systemd services, and a single runtime launcher.
+- [x] Validate FH4 telemetry and adaptive triggers with a physical DualSense over USB.
+- [x] Stabilize Bluetooth HID output with transport-aware pacing and verify sustained FH4 operation on physical hardware.
+- [ ] Complete physical-hardware regression passes for FM7, FM8, and DiRT Rally 1.
+
 ## Prerequisites
 
 Run the stack on the Linux host that owns the DualSense HID device and user-systemd session. Required tools are:
@@ -122,6 +132,22 @@ Configure FH4 telemetry output for UDP port `5300`. The managed pipeline is:
 The bundled Hefesto revision preserves ordinary raw stiffness values `9–255`, scales named resistance levels `0–8`, and preserves custom/hybrid force bytes exactly. This retains the dynamic force range emitted by RacingDSX.
 
 The installed RacingDSX runtime config is initialized from `config/RacingDSX.json`. Bootstrap preserves an existing runtime config on subsequent runs.
+
+### Adaptive-trigger tuning
+
+The live R2/L2 response is calculated in `RacingDSX-Headless/GameParsers/Parser.cs`:
+
+- `GetInRaceRightTriggerInstruction()` controls R2/throttle response.
+- `GetInRaceLeftTriggerInstruction()` controls L2/brake response.
+- `Map()` and `EWMA()` provide value mapping and response smoothing for both triggers.
+
+The tunable values come from the active profile's `throttleSettings` and `brakeSettings`. For a running installed stack, edit `.runtime/racingdsx/RacingDSX.json`; `config/RacingDSX.json` is only the seed copied during first-time setup. The corresponding strongly typed defaults are in `RacingDSX-Headless/Config/ThrottleSettings.cs` and `RacingDSX-Headless/Config/BrakeSettings.cs`.
+
+Restart RacingDSX after changing its live JSON config:
+
+```bash
+systemctl --user restart racingdsx.service
+```
 
 ## Diagnostics
 

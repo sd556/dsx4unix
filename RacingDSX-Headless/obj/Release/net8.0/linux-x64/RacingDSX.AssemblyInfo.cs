@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Paliverse Apps LLC")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+005554656f1b6d29e17e86e9ffdda1b9b0b34fcb")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+6655f67f102ae2e4d5c26fde748aad16e12e1604")]
 [assembly: System.Reflection.AssemblyProductAttribute("RacingDSX")]
 [assembly: System.Reflection.AssemblyTitleAttribute("RacingDSX")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
