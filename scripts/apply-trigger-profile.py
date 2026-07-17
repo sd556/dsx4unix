@@ -160,13 +160,14 @@ def apply_high(config_path: Path, preset_path: Path, state_path: Path) -> str:
 
 
 def apply_normal(config_path: Path, preset_path: Path, state_path: Path) -> str:
-    if not path_exists(state_path, "trigger profile state"):
-        return f"normal trigger profile already selected: {config_path}"
-
     config = load_object(config_path, "runtime configuration")
     preset = load_object(preset_path, "high preset")
     sections = forza_sections(config)
     validate_overlay(sections, preset, "high preset")
+
+    if not path_exists(state_path, "trigger profile state"):
+        return f"normal trigger profile already selected: {config_path}"
+
     state = parse_state(state_path, sections, preset)
     for section in SECTIONS:
         sections[section].update(state["normal"][section])

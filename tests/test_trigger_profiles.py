@@ -198,6 +198,44 @@ def test_normal_without_state_is_idempotent(tmp_path):
     assert config_path.read_bytes() == before
 
 
+def test_normal_without_state_rejects_malformed_config_without_writing(tmp_path):
+    config_path = tmp_path / "RacingDSX.json"
+    config_path.write_text("{broken")
+    before = config_path.read_bytes()
+    state_path = tmp_path / "missing-state.json"
+
+    result = _run_helper("normal", config_path, state_path)
+
+    assert result.returncode != 0
+    assert result.stdout == ""
+    assert result.stderr.startswith("error: cannot read runtime configuration ")
+    assert "Traceback" not in result.stderr
+    assert config_path.read_bytes() == before
+    assert not state_path.exists()
+    assert set(tmp_path.iterdir()) == {config_path}
+
+
+def test_normal_without_state_rejects_malformed_preset_without_writing(tmp_path):
+    config_path = tmp_path / "RacingDSX.json"
+    config_path.write_text(json.dumps(_normal_config()))
+    preset_path = tmp_path / "high.json"
+    preset_path.write_text("{broken")
+    state_path = tmp_path / "missing-state.json"
+    config_before = config_path.read_bytes()
+    preset_before = preset_path.read_bytes()
+
+    result = _run_helper("normal", config_path, state_path, preset_path)
+
+    assert result.returncode != 0
+    assert result.stdout == ""
+    assert result.stderr.startswith("error: cannot read high preset ")
+    assert "Traceback" not in result.stderr
+    assert config_path.read_bytes() == config_before
+    assert preset_path.read_bytes() == preset_before
+    assert not state_path.exists()
+    assert set(tmp_path.iterdir()) == {config_path, preset_path}
+
+
 @pytest.mark.parametrize(
     "mutate, expected_error",
     [
