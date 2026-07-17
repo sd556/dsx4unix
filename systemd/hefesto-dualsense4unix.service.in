@@ -1,0 +1,18 @@
+[Unit]
+Description=Hefesto DualSense adaptive-trigger daemon for DSX stack
+After=default.target
+StartLimitIntervalSec=30
+StartLimitBurst=3
+
+[Service]
+Type=simple
+ExecStart="@REPO_ROOT@/vendor/hefesto-dualsense4unix/.venv/bin/hefesto-dualsense4unix" daemon start --foreground
+WorkingDirectory=@REPO_ROOT@/vendor/hefesto-dualsense4unix
+Environment=PYTHONUNBUFFERED=1
+Restart=on-failure
+RestartSec=2
+SuccessExitStatus=143 SIGTERM
+KillMode=control-group
+
+[Install]
+WantedBy=default.target

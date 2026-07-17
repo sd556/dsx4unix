@@ -1,0 +1,3 @@
+[submodule "vendor/hefesto-dualsense4unix"]
+	path = vendor/hefesto-dualsense4unix
+	url = https://github.com/sd556/hefesto-dualsense4unix.git
